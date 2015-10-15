@@ -1,0 +1,467 @@
+<apex:page controller="MetadataViewerHelperService" applyBodyTag="false" docType="html-5.0" standardStylesheets="false" sidebar="false" showHeader="false">
+    <meta charset="UTF-8"/>
+    <base href="/GetDetails/"/>
+    <title>Metadata Viewer</title>
+    <link href='//fonts.googleapis.com/css?family=Lato' rel='stylesheet' type='text/css'/>
+    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css"/>
+    <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.3.15/angular.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/angular.js/1.4.5/angular-animate.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/angular-ui-bootstrap/0.13.4/ui-bootstrap-tpls.js"></script>
+    <script src="/soap/ajax/28.0/connection.js"></script>    
+    <script src="{!URLFOR($Resource.ngcsv,'build/ng-csv.min.js')}"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.2.15/angular-sanitize.min.js"></script>
+    <!-- [ if !IE ] >
+<style>
+* {
+font-family : 'Lato', sans-serif;
+}
+</style>
+< ! [ endif ] -->
+    
+    <body ng-app="MyApplication" ng-controller="MyController" ng-cloak="true">
+        <nav class="navbar navbar-default bg">
+            <div class="col-md-6 col-lg-6 col-sm-12 col-xs-12">
+                <div class="navbar-brand bg">
+                    Object Metadata Viewer
+                </div>
+            </div>
+            <div class=" col-lg-offset-2 col-md-offset-2 col-md-4 col-lg-4 col-sm-8 col-xs-8">
+                <form class="navbar-form">
+                    <div class="form-group" style="width:100% !important">
+                        <input placeholder="Type Object Name" type="text" ng-model="selected"
+                               typeahead="(obj.label + ' (' + obj.apiName + ')') for obj in objects | filter:$viewValue | limitTo:10"
+                               typeahead-on-select="onSelect($item, $model, $label)"
+                               class="form-control" id="inputSearch" style="width:100% !important ; border-radius: 20px"/>
+                    </div>
+                </form>
+            </div>
+        </nav>
+        <div class="container-fluid" style="padding-bottom: 40px">
+            <progressbar ng-show="executingRequest" class="progress-striped active fadein fadeout" value="'100'"
+                         type="warning">
+                <i>Fetching Fields</i>
+            </progressbar>
+            <div ng-show="fields.length>0">
+                <nav class="navbar navbar-default">
+                    <div class="container-fluid">
+                        <div class="navbar-header">
+                            <a class="navbar-brand">{{displayedObject}}</a>
+                        </div>
+                        <form class="navbar-form navbar-left" role="search">
+                            <div class="form-group">
+                                <input type="text" ng-model-options="{debounce: 1000}" ng-model="fieldFilter"
+                                       class="form-control" placeholder="Filter by Label"/>
+                            </div>
+                        </form>
+                        <ul class="nav navbar-nav navbar-right">
+                            <li><a ng-csv="download()" filename="{{selectedObj}} Fields.csv" csv-header="headers"><b>Download</b></a></li>
+                            <li><a>Rows Per Page</a></li>
+                            <li style="padding-top: 7px; padding-right: 10px">
+                                <div class="form-group">
+                                    <label>
+                                        <select ng-model="rows" class="form-control">
+                                            <option selected="selected">100</option>
+                                            <option>200</option>
+                                            <option>400</option>
+                                            <option>600</option>
+                                            <option>800</option>
+                                        </select>
+                                    </label>
+                                </div>
+                            </li>
+                            <li><a>Show Picklist Values</a></li>
+                            <li style="padding-top: 7px; padding-right: 10px">
+                                <div class="form-group">
+                                    <label>
+                                        <select ng-model="showPickVal" class="form-control">
+                                            <option selected="selected">No</option>
+                                            <option>Yes</option>
+                                        </select>
+                                    </label>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </nav>
+                <div class="table-responsive">
+                    <table class="table table-condensed table-hover">
+                        <thead>
+                            <tr>
+                                <th class="col-md-1">S.No.</th>
+                                <th class="col-md-4">Label</th>
+                                <th class="col-md-1">Field</th>
+                                <th class="col-md-3">Api Name</th>
+                                <th class="col-md-1">Datatype</th>
+                                <th class="col-md-2">Picklist values</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class=""
+                                ng-repeat="field in fields | filter: {label : fieldFilter} | limitTo : rows ">
+                                
+                                <td class="middle bottomBorderTable" ng-bind="$index + 1"></td>
+                                <td class="padRight bottomBorderTable">{{field.label}}
+                                </td>
+                                <td>
+                                    <span style="font-size: 0.8em"
+                                          ng-class="{'label label-primary': field.custom, 'label label-danger' : !field.custom }">
+                                        {{field.custom ? 'CUSTOM' :'STANDARD'}}</span>
+                                </td>
+                                <td class="bottomBorderTable" ng-bind="field.name"></td>
+                                <td class="bottomBorderTable"
+                                    ng-bind="field.type | userIsAGoatFilter: field.nillable : field.autoNumber"></td>
+                                <td class="bottomBorderTable">
+                                    <table ng-show="showPickVal=='Yes'" class="table table-hover table-condensed">
+                                        <tr style="font-size: smaller"
+                                            ng-repeat="pickVal in field.picklistValues"
+                                            ng-class="{'success': pickVal.active, 'danger': !pickVal.active}">
+                                            
+                                            <td ng-bind="pickVal.label" style="font-weight: bold"></td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                        </tbody>
+                        <tfoot>
+                            
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="jumbotron" ng-hide="permanentlyDisabled">
+                <h2 class="fadein fadeout" ng-hide="ready" ng-bind="messages[0]"></h2>
+                
+                <h1 class="fadein fadeout" ng-show="ready" ng-bind="messages[1]"></h1>
+                
+                <h3 class="fadein fadeout" ng-show="ready" ng-bind="messages[2]"></h3>
+                <progressbar class="fadein fadeout" value="progressValue" animate="false" type="'success'">
+                    <i ng-show="ready">Completed</i>
+                </progressbar>
+            </div>
+            <div ng-show="fields.length>0" class="footer sideBorder">
+                <div class="container">
+                    <p class="text-muted">
+                        &#9829; Made for fun by SFDC Team &#9829;
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        
+        <script>
+        
+        
+        var app = angular.module("MyApplication", ['ui.bootstrap', 'ngAnimate' ,"ngSanitize", "ngCsv"]);
+        app.config(function ($locationProvider) {
+            $locationProvider.html5Mode(true);
+        });
+        app.filter('userIsAGoatFilter', function () {
+            return function (type, nillable, auto) {
+                if (!type) {
+                    return 'Unknown';
+                }
+                else if (type == 'reference' && nillable) {
+                    return 'Lookup'
+                } else if (type == 'reference') {
+                    return 'Master Detail';
+                } else if (type == 'boolean') {
+                    return 'Checkbox'
+                } else if (type == 'id') {
+                    return 'ID';
+                } else if (type == 'string' && auto) {
+                    return 'Auto Number';
+                } else if (type == 'string') {
+                    return 'Text';
+                } else if (type == 'textarea') {
+                    return 'Text Area';
+                } else if (type == 'picklist') {
+                    return 'Picklist';
+                } else if (type == 'multipicklist') {
+                    return 'Multi Select Picklist';
+                } else if (type == 'currency') {
+                    return 'Currency';
+                } else if (type == 'double') {
+                    return 'Decimal';
+                } else if (type == 'int') {
+                    return 'Integer';
+                } else if (type == 'date') {
+                    return 'Date';
+                } else if (type == 'datetime') {
+                    return 'Date and Time';
+                } else if (type == 'phone') {
+                    return 'Phone Number';
+                } else if (type == 'url') {
+                    return 'URL';
+                } else {
+                    return type;
+                }
+            }
+        });
+        app.controller("MyController", function ($scope, $http, $window, $timeout, $filter) {
+            $scope.messages = ['We are fetching your Organisation\'s metadata', 'We are ready to go...', 'Enter object name in the search box above'];
+            $scope.ready = false;
+            $scope.progressValue = 0;
+            $scope.showPickVal = 'No';
+            $scope.fieldFilter = '';
+            $scope.rows = 100;
+            $scope.selected = '';
+            $scope.displayedObject = '';
+            $scope.metaData = {};
+            $scope.objects = [];
+            $scope.fields = [];
+            $scope.fetchedData = '';
+            $scope.serviceUrl = '/services/data/v29.0';
+            $scope.baseURL = '';
+            $scope.sessionId = '';
+            $scope.permanentlyDisabled = false;
+            $scope.executingRequest = false;
+            
+            $scope.progress = function (count) {
+                $timeout(function () {
+                    $scope.progressValue += 25;
+                    if (count == 3) {
+                        $scope.ready = true;
+                    }
+                    $scope.$apply();
+                }, 1500);
+            };
+            
+            $scope.fetchThis = function(query, callBack){
+                Visualforce.remoting.timeout = 120000; // Set timeout at page level
+                // This remoting call will use the page's timeout value
+                Visualforce.remoting.Manager.invokeAction(
+                    '{!$RemoteAction.MetadataViewerHelperService.returnDataRemote}', query, callBack
+                );                
+                
+                
+            }
+            function objects(result, event){
+                var deserialize = angular.fromJson(atob(result));
+                var jsonResponse = deserialize['sobjects'];
+                var length = jsonResponse.length;
+                var step = 1 / length + 1;
+                angular.forEach(jsonResponse, function (value, key) {
+                    if (value.label.indexOf('History:') == -1 && value.label.indexOf('Tag:') == -1
+                        && value.label.indexOf('Feed:') == -1 && value.name.indexOf('CRMfusionDBR101') == -1) {
+                        var newObj = {
+                            label: value.label,
+                            apiName: value.name
+                        };
+                        $scope.objects.push(newObj);
+                    }
+                });
+                for (var count = 0; count < 4; count++) {
+                    $scope.progress(count);
+                }
+            }
+            function fields(result, event) { 
+                var deserialize = angular.fromJson(atob(result));
+                $scope.fields = deserialize['fields'];
+                $scope.displayedObject = $scope.selected;
+                $scope.executingRequest = false;
+                $scope.permanentlyDisabled = true;
+                $scope.$apply();
+            }
+            $scope.download = function(){
+                var downloadData = [];
+                for(var count= 0 ; count < $scope.fields.length ; count++){
+                    var field = $scope.fields[count];
+                    if(field.name && field.label && field.picklistValues){
+                        var pickVals = '';
+                        if (field.picklistValues.length>0){
+                            for(var num = 0 ;num < field.picklistValues.length ; num ++){
+                                pickVals = pickVals + ' | ' + field.picklistValues[num].label;
+                            }
+                        }
+                        downloadData.push(
+                            [count + 1 , field.label ,  field.custom ? 'CUSTOM' :'STANDARD' , field.name, $filter('userIsAGoatFilter')(field.type ,field.nillable,field.autoNumber),pickVals]
+                        );
+                    }
+                }
+                return downloadData;
+            }
+            
+            $scope.headers = ['S.No. ' , 'Label' , ' Custom/Standard' , 'Api Name' , 'Data Type' ,'Picklist Values' ];
+            
+            $scope.fetchObjects = function () {
+                if (!$scope.sessionId) {
+                    $window.alert('Please goto login page to access Metadata');
+                    return;
+                }
+                var config = {
+                    "method": "GET",
+                    "url": $scope.baseURL + $scope.serviceUrl + "/sobjects",
+                    "sessionId" : decodeURIComponent($scope.sessionId)
+                };
+                
+                $scope.fetchThis(JSON.stringify(config), objects);
+            };
+            
+            $scope.onSelect = function ($item, $model, $label) {
+                $scope.fetchFields($item);
+            };
+            
+            $scope.fetchFields = function ($item) {
+                $scope.selectedObj = $item.apiName;
+                $scope.executingRequest = true;
+                $scope.rows = 100;
+                $http.defaults.headers.common.Authorization = "Bearer " + $scope.sessionId;
+                var config = {
+                    "method": "GET",
+                    "url": $scope.baseURL + $scope.serviceUrl + "/sobjects/" + $item.apiName + "/describe",
+                    "sessionId" : decodeURIComponent($scope.sessionId)
+                };
+                
+                $scope.fetchThis(JSON.stringify(config), fields);
+            };
+            
+            $scope.authorize = function () {
+                if (window.location.hash.split('&')[0].split('=')[1] && window.location.hash.split('&')[1].split('=')[1]) {
+                    var code = window.location.hash.split('&')[0].split('=')[1];
+                    var baseUrl = window.location.hash.split('&')[1].split('=')[1];
+                    $scope.sessionId = code;
+                    $scope.baseURL = decodeURIComponent(baseUrl);
+                } else {
+                    $scope.sessionId = null;
+                }
+            };
+            
+            $scope.authorize();
+            $scope.fetchObjects();
+        })       ;
+        </script>
+        <style>
+            .middle {
+            text-align: center;
+            }
+            
+            .padRight {
+            padding-right: 3% !important;
+            }
+            
+            .bottomBorderTable {
+            border-bottom: solid rgba(0, 89, 188, 0.1) 1px;
+            }
+            
+            nav input :active {
+            -webkit-transition: width 1s ease;
+            -moz-transition: width 1s ease;
+            -ms-transition: width 1s ease;
+            -o-transition: width 1s ease;
+            transition: width 1s ease;
+            width: 400px;
+            }
+            
+            .animateMe.ng-leave,
+            .animateMe.ng-move {
+            -webkit-transition: 0.75s linear all;
+            -moz-transition: 0.75s linear all;
+            -o-transition: 0.75s linear all;
+            transition: 0.75s linear all;
+            }
+            
+            .animateMe.ng-enter,
+            .animateMe.ng-move {
+            opacity: 0;
+            height: 0;
+            overflow: hidden;
+            }
+            
+            .animateMe.ng-move.ng-move-active,
+            .animateMe.ng-enter.ng-enter-active {
+            opacity: 1;
+            height: 120px;
+            }
+            
+            .animateMe.ng-leave {
+            opacity: 1;
+            overflow: hidden;
+            }
+            
+            .animateMe.ng-leave.ng-leave-active {
+            opacity: 0;
+            height: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+            }
+            
+            * {
+            /*font-family: 'Open Sans', sans-serif !important;*/
+            /*font-family: 'Lato', sans-serif;*/
+            font-family: 'Segoe UI', sans-serif;
+            /*font-family: 'Roboto', sans-serif !important;*/
+            }
+            
+            table {
+            border-collapse: collapse
+            }
+            
+            .navbar-default .navbar-form {
+            border-color: #0D47A1;
+            }
+            
+            table tr td {
+            /*font-weight: bold;*/
+            font-size: small;
+            word-wrap: break-word;
+            }
+            
+            .label {
+            font-weight: normal;
+            }
+            
+            .nav, .pagination, .carousel, .panel-title a {
+            cursor: pointer;
+            }
+            
+            .footer {
+            /*position: fixed;*/
+            bottom: 0;
+            right: 0;
+            left: 0;
+            width: 100%;
+            height: 40px;
+            background-color: lightgrey;
+            padding: 10px;
+            border: 0;
+            margin: 0;
+            border-bottom-left-radius: 5px;
+            border-bottom-right-radius: 5px;
+            }
+            
+            .bg {
+            background-color: #0D47A1 !important;
+            border: 0 #0D47A1 !important;
+            border-radius: 0 !important;;
+            color: #ffffff !important;
+            }
+            
+            .fadein,
+            .fadeout {
+            -webkit-transition: all cubic-bezier(0.250, 0.460, 0.450, 0.840) 1.5s;
+            -moz-transition: all cubic-bezier(0.250, 0.460, 0.450, 0.840) 1.5s;
+            -o-transition: all cubic-bezier(0.250, 0.460, 0.450, 0.840) 1.5s;
+            transition: all cubic-bezier(0.250, 0.460, 0.450, 0.840) 1.5s;
+            }
+            
+            .fadein.ng-hide-remove,
+            .fadeout.ng-hide-add.ng-hide-add-active {
+            opacity: 0;
+            display: block !important;
+            padding-bottom: 0;
+            padding-top: 0;
+            max-height: 0;
+            }
+            
+            .fadeout.ng-hide-add,
+            .fadein.ng-hide-remove.ng-hide-remove-active {
+            opacity: 1;
+            padding-bottom: initial;
+            padding-top: initial;
+            display: block !important;
+            max-height: 250px;
+            }
+        </style>
+    </body>
+</apex:page>
